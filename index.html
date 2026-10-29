@@ -256,3 +256,1540 @@ function launchFromIntro(){document.body.classList.add('game-started');document.
 </script><script id="onboarding-script">
 (()=>{const splash=document.getElementById('studioSplash'),guide=document.getElementById('guideOverlay'),intro=document.getElementById('intro'),next=document.getElementById('guideNext'),skip=document.getElementById('guideSkip'),demo=document.getElementById('guideDemo');let step=0,practiced=false;const scenes=[['🎱 TOPLARI TANI','İlk turda 50 top var; her tur 5 top daha eklenir. Hedefin hepsini yok etmek!'],['👆 TEK DOKUNUŞ','Masaya dokun. Aura 2 saniye açık, 2 saniye kapalı kalır. İlk turlarda daha büyüktür.'],['✨ ZİNCİRLEME PATLAMA','Patlayan toplar yeni auralar oluşturur. Tek dokunuşla 75 top patlatırsan +1 dokunuş kazanırsın!'],['🎁 ÖZEL TOPLAR','Envanterindeki özel topları kullanarak zor turları geçebilirsin.'],['🎮 ŞİMDİ SEN DENE!','Üç topu patlatmak için oyun alanına dokun! İlk 3 turda sınırsız, 4–8 arası 3, 9–13 arası 2, 14. turdan sonra 1 dokunuş hakkın var.']];function draw(){let [title,desc]=scenes[step];document.getElementById('guideProgress').textContent=(step+1)+' / '+scenes.length;document.getElementById('guideTitle').textContent=title;document.getElementById('guideText').textContent=desc;demo.classList.toggle('practice',step===4);demo.classList.remove('done');practiced=false;next.textContent=step===4?'Oyuna geç':'Devam';next.disabled=step===4;next.style.opacity=step===4?'.5':'1'}function close(){guide.hidden=true;intro.hidden=false;localStorage.setItem('oneToucheTutorialSeenV2','yes')}function open(){step=0;guide.hidden=false;intro.hidden=true;draw()}next.onclick=()=>{if(step<4){step++;draw()}else close()};skip.onclick=close;demo.onclick=()=>{if(step!==4||practiced)return;practiced=true;demo.classList.add('done');next.disabled=false;next.style.opacity='1';document.getElementById('guideText').textContent='Harika! İlk zincirleme patlamanı yaptın. Artık hazırsın!'};document.getElementById('helpGuide').onclick=open;intro.hidden=true;setTimeout(()=>{splash.hidden=true;if(localStorage.getItem('oneToucheTutorialSeenV2')!=='yes')open();else intro.hidden=false},4000)})();
 </script></body></html>
+
+<div id="specialOverlay">
+  <div id="specialPanel">
+    <h2 id="specialTitle"></h2>
+    <p id="specialDesc"></p>
+    <div id="specialDemo" hidden aria-label="Special ball animated demonstration">
+      <div class="demo-orb" id="demoOrb"></div>
+      <div class="demo-target"></div>
+      <div class="demo-target"></div>
+      <div class="demo-target"></div>
+      <div class="demo-target"></div>
+      <div class="demo-wave"></div>
+    </div>
+    <div id="collectionItems"></div>
+    <button id="specialClose" type="button">Devam Et</button>
+  </div>
+</div>
+
+<div id="v6Settings" role="dialog" aria-label="Ayarlar">
+  <div class="v6panel">
+    <h2>⚙️ Ayarlar</h2>
+    <label>🎵 Müzik <input id="v6Music" type="checkbox"></label>
+    <label>🔊 Oyun sesleri <input id="v6Sound" type="checkbox"></label>
+    <label>✨ Özel efekt sesleri <input id="v6Fx" type="checkbox"></label>
+    <label>🎨 Özel gün temaları <input id="v6Themes" type="checkbox"></label>
+    <label>🌐 Dil
+      <select id="v6Language">
+        <option value="tr">Türkçe</option>
+        <option value="en">English</option>
+        <option value="es">Español</option>
+      </select>
+    </label>
+    <div>
+      <button id="v6Guide">🎓 Oyun eğitimi</button>
+      <button id="v6Special">✨ Özel top tanıtımları</button>
+      <button id="v6Ranks">🏆 Aylık sıralama</button>
+    </div>
+    <p id="v6RankInfo" class="small" hidden>🌍 Dünya, ülke ve bölge sıralaması: gerçek oyuncu bağlantısı henüz kurulmadı. Aylık puan cihazda tutulur.</p>
+    <p class="small">Deneme sürümü • Sesli özel gün sürprizleri cihazın ses ayarlarına uyar.</p>
+    <button id="v6Close">✕ Kapat</button>
+  </div>
+</div>
+
+<div id="v6Event">
+  <div class="fly" id="v6Fly"></div>
+</div>
+
+<div id="rotate">
+  <div class="rotate-title">ONE TOUCHE</div>
+  <div class="rotate-scene">
+    <div class="scared-ball b1"><i>😱</i></div>
+    <div class="scared-ball b2"><i>😨</i></div>
+    <div class="scared-ball b3"><i>😵</i></div>
+    <div class="scared-ball b4"><i>😲</i></div>
+    <div class="rotate-device upright"><span>☹</span><b>✕</b></div>
+    <div class="turn-arrow">➜</div>
+    <div class="rotate-device sideways"><span>☺</span><b>✓</b></div>
+  </div>
+  <div class="rotate-hint">↪️ Telefonunu yatay çevir!</div>
+</div>
+
+<div id="milestoneShow" aria-live="polite"></div>
+
+<div id="modal">
+  <div class="panel">
+    <h2 id="result"></h2>
+    <p id="detail"></p>
+    <button id="continue">Devam et</button>
+  </div>
+</div>
+
+<script>
+(()=>{'use strict';
+
+const board=document.getElementById('board'),$=id=>document.getElementById(id),palette=['#176044','#164f69','#46356a','#6b3549','#315c40','#65462d','#254c68','#5a375b'];
+
+let level=1,moves=1,bank=0,balls=[],auras=[],state='play',last=0,delay=0,combo=0,used=0,failed=0,lockUntil=0,lang=localStorage.getItem('threeTouchLang')||'tr',soundOn=localStorage.getItem('threeTouchSound')!=='off',audioCtx=null,touchId=0,chains={},awarded=new Set();
+
+try{
+ let save=JSON.parse(localStorage.getItem('threeTouchSaveV3')||'{}');
+ level=save.level||1;
+ bank=Math.min(1,save.bank||0);
+ failed=save.failed||0;
+ lockUntil=save.lockUntil||0;
+}catch(e){}
+
+const specials={
+ rainbow:{icon:'🌈',colors:'#ff79d9',tr:['Renk Topu','Yakalandığında masadaki bir rengi seçer ve o renkteki bütün normal topları patlatır.'],en:['Color Ball','When caught, clears every normal ball of one color on the board.'],es:['Bola de color','Al capturarla, elimina todas las bolas normales de un color.']},
+ gold:{icon:'🌟',colors:'#ffd700',tr:['Altın Top','Yakalandığında 1 ekstra dokunuş verir.'],en:['Golden Ball','Grants 1 extra touch when collected.'],es:['Bola dorada','Otorga 1 toque extra al capturarla.']},
+ lion:{icon:'🦁',colors:'#ff9d36',tr:['Aslan Topu','Yakındaki toplar aslandan uzaklaşır.'],en:['Lion Ball','Nearby balls flee from the lion.'],es:['Bola león','Las bolas cercanas huyen del león.']},
+ magnet:{icon:'🧲',colors:'#76f7d5',tr:['Mıknatıs Top','Yakındaki diğer topları kendine doğru çeker.'],en:['Magnet Ball','Attracts nearby balls toward itself.'],es:['Bola imán','Atrae hacia sí a las bolas cercanas.']},
+ bomb:{icon:'💥',colors:'#ff714c',tr:['Patlayıcı Top','Yakalandığında daha geniş bir aura oluşturur.'],en:['Bomb Ball','Creates a larger aura when captured.'],es:['Bola explosiva','Crea un aura más grande al capturarla.']},
+ split:{icon:'🔮',colors:'#d7a0ff',tr:['Kristal Top','Yakalandığında iki yeni aura oluşturur.'],en:['Crystal Ball','Creates two new auras when captured.'],es:['Bola de cristal','Crea dos auras nuevas al capturarla.']}
+};
+
+const migrateType=t=>t==='rabbit'?'lion':t;
+
+let dailyKey=new Date().toLocaleDateString('en-CA'),rewardInfo=(()=>{
+ try{return JSON.parse(localStorage.getItem('threeTouchDailyV7')||'{}')}
+ catch(e){return {}}
+})();
+
+if(rewardInfo.day!==dailyKey)rewardInfo={day:dailyKey,count:0,inventory:[]};
+
+rewardInfo.inventory=(rewardInfo.inventory||[]).map(migrateType);
+
+if(!localStorage.getItem('oneToucheWelcomeGiftV1')){
+ for(const type of Object.keys(specials)){
+  for(let i=0;i<5;i++)rewardInfo.inventory.push(type);
+ }
+ localStorage.setItem('oneToucheWelcomeGiftV1','yes');
+ localStorage.setItem('threeTouchDailyV7',JSON.stringify(rewardInfo));
+}
+
+function updateReward(){
+ let label={tr:'🎁 Ödül',en:'🎁 Reward',es:'🎁 Premio'}[lang];
+ $('rewardBtn').textContent=label+' '+rewardInfo.count+'/10';
+}
+
+function grantReward(){
+ if(rewardInfo.count>=10){
+  message({tr:'Günlük sınır doldu',en:'Daily limit reached',es:'Límite diario alcanzado'}[lang]);
+  return;
+ }
+ let types=Object.keys(specials),type=types[Math.floor(Math.random()*types.length)];
+ rewardInfo.count++;
+ rewardInfo.inventory.push(type);
+ localStorage.setItem('threeTouchDailyV7',JSON.stringify(rewardInfo));
+ updateReward();
+ message(specials[type].icon+' '+specials[type][lang][0]);
+}
+
+$('inventoryBtn').onclick=()=>showInventory();
+
+function showInventory(){
+ overlayResume=state==='pause'?overlayResume:state;
+ state='pause';
+ $('specialOverlay').style.display='flex';
+ $('specialTitle').textContent={tr:'🎒 Özel Top Envanteri',en:'🎒 Special Ball Inventory',es:'🎒 Inventario especial'}[lang];
+ $('specialDesc').textContent={tr:'İstediğin özel topu masaya ekle. Birden fazlasını da kullanabilirsin.',en:'Choose balls to add to the board. You may use several.',es:'Elige bolas para añadir a la mesa. Puedes usar varias.'}[lang];
+
+ let area=$('collectionItems');
+ area.innerHTML='';
+ let counts={};
+ rewardInfo.inventory.forEach(t=>counts[t]=(counts[t]||0)+1);
+
+ Object.keys(counts).forEach(t=>{
+  if(!specials[t])return;
+  let btn=document.createElement('button');
+  btn.type='button';
+  btn.textContent=specials[t].icon+' '+specials[t][lang][0]+' ×'+counts[t];
+  btn.style.cssText='display:block;margin:8px auto;padding:9px;border-radius:8px;cursor:pointer';
+
+  btn.onclick=()=>{
+   if(overlayResume!=='play'){
+    message({tr:'Özel top yalnızca oyun sırasında kullanılabilir',en:'Use special balls during play',es:'Usa bolas especiales durante la partida'}[lang]);
+    return;
+   }
+   if(!spawnInventoryBall(t)){
+    message({tr:'Masada yer yok',en:'No room on the board',es:'No hay espacio'}[lang]);
+    return;
+   }
+   rewardInfo.inventory.splice(rewardInfo.inventory.indexOf(t),1);
+   localStorage.setItem('threeTouchDailyV7',JSON.stringify(rewardInfo));
+   showInventory();
+
+   if(!seen.has(t)){
+    seen.add(t);
+    discovered.add(t);
+    localStorage.setItem('threeTouchSeen',JSON.stringify([...seen]));
+    localStorage.setItem('threeTouchDiscovered',JSON.stringify([...discovered]));
+    (window.pendingSpecials??=[]).push(t);
+   }
+  };
+  area.appendChild(btn);
+ });
+
+ if(!rewardInfo.inventory.length){
+  area.textContent={tr:'Envanter boş',en:'Inventory empty',es:'Inventario vacío'}[lang];
+ }
+ $('specialClose').textContent={tr:'Devam Et',en:'Continue',es:'Continuar'}[lang];
+}
+
+function spawnInventoryBall(type){
+ let sz=size(),r=balls[0]?.r||10,x,y,valid=false;
+ for(let j=0;j<180;j++){
+  x=r+Math.random()*Math.max(1,sz.w-2*r);
+  y=r+Math.random()*Math.max(1,sz.h-2*r);
+  if(balls.every(b=>Math.hypot(b.x-x,b.y-y)>b.r+r+3)){
+   valid=true;
+   break;
+  }
+ }
+ if(!valid)return false;
+
+ let el=document.createElement('div'),
+ c=specials[type].colors,
+ angle=Math.random()*Math.PI*2,
+ speed=35+Math.random()*90;
+
+ el.className='ball special '+type;
+ el.dataset.icon=specials[type].icon;
+ el.setAttribute('aria-label',specials[type][lang][0]);
+ el.style.setProperty('--color',c);
+ el.style.width=2*r+'px';
+ el.style.height=2*r+'px';
+ el.style.left='0';
+ el.style.top='0';
+ board.appendChild(el);
+
+ balls.push({
+  el,x,y,
+  vx:Math.cos(angle)*speed,
+  vy:Math.sin(angle)*speed,
+  r,c,special:type
+ });
+
+ draw();
+ update();
+ return true;
+}
+
+$('rewardBtn').onclick=()=>{
+ message({tr:'Reklam entegrasyonu henüz yok',en:'Ads are not integrated yet',es:'Los anuncios aún no están integrados'}[lang]);
+};
+
+let discovered=new Set(JSON.parse(localStorage.getItem('threeTouchDiscovered')||'[]')),
+seen=new Set(JSON.parse(localStorage.getItem('threeTouchSeen')||'[]')),
+effectClock=0,
+overlayResume='play';
+
+function showSpecial(type,collection=false){
+ overlayResume=state==='pause'?overlayResume:state;
+ state='pause';
+ $('specialOverlay').style.display='flex';
+
+ const area=$('collectionItems'),demo=$('specialDemo');
+ area.innerHTML='';
+ demo.hidden=collection;
+
+ $('specialTitle').textContent=collection
+  ?({tr:'🏆 Top Koleksiyonu',en:'🏆 Ball Collection',es:'🏆 Colección de bolas'}[lang])
+  :specials[type].icon+' '+specials[type][lang][0];
+
+ $('specialDesc').textContent=collection
+  ?({tr:'Öğrendiğin özel topların animasyonlarını tekrar izleyebilirsin.',en:'Replay animations for discovered special balls.',es:'Vuelve a ver las animaciones de las bolas descubiertas.'}[lang])
+  :specials[type][lang][1];
+
+ if(collection){
+  Object.keys(specials).forEach(k=>{
+   let btn=document.createElement('button');
+   btn.type='button';
+   btn.className='collection-replay';
+   btn.textContent=discovered.has(k)
+    ?specials[k].icon+' '+specials[k][lang][0]+' ▶'
+    :'🔒 ???';
+   btn.disabled=!discovered.has(k);
+   btn.onclick=()=>showSpecial(k);
+   area.appendChild(btn);
+  });
+ }else{
+  demo.dataset.kind=type;
+  $('demoOrb').textContent=specials[type].icon;
+  $('demoOrb').style.setProperty('--orb',specials[type].colors);
+  demo.style.setProperty('--orb',specials[type].colors);
+  demo.style.animation='none';
+  void demo.offsetWidth;
+  demo.style.animation='';
+  tone(type==='gold'?920:520,.16);
+ }
+
+ $('specialClose').textContent={
+  tr:'Anladım, devam et',
+  en:'Got it, continue',
+  es:'Entendido, continuar'
+ }[lang];
+}
+
+$('specialClose').onclick=()=>{
+ $('specialOverlay').style.display='none';
+ $('specialDemo').hidden=true;
+ state=overlayResume;
+
+ if(window.pendingSpecials?.length){
+  let kind=window.pendingSpecials.shift();
+  showSpecial(kind);
+ }
+};
+
+$('collectionBtn').onclick=()=>showSpecial(null,true);
+
+const translations={
+ tr:{
+  level:'TUR',
+  balls:'TOP',
+  moves:'HAK',
+  bank:'BİRİKİM',
+  restart:'↻ Turu yenile',
+  fullscreen:'⛶ Tam ekran',
+  rotate:'📱 Telefonunu yatay çevirerek oyna',
+  next:'Sonraki tur',
+  retry:'Tekrar dene',
+  win:'✨ TUR TAMAMLANDI!',
+  epic:'🏆 EFSANEVİ!',
+  lose:'HAKLAR BİTTİ!',
+  carry:'Biriken {n} dokunma sonraki tura taşınacak.',
+  bonus:'🎁 10 tur ödülü +1!',
+  comboBonus:'🎁 75 KOMBO! +1 DOKUNUŞ',
+  wait:'5 başarısız deneme. 5 dakika sonra tekrar oynayabilirsin.',
+  left:'Masada {n} top kaldı.',
+  remainingWait:'Kalan bekleme: {n} dakika',
+  waitActive:'Bekleme süresi devam ediyor',
+  color:'🎨 Renkli tur',
+  check:'Tekrar kontrol et',
+  waiting:'⏳ Bekleme süresi'
+ },
+ en:{
+  level:'LEVEL',
+  balls:'BALLS',
+  moves:'TOUCHES',
+  bank:'SAVED',
+  restart:'↻ Restart level',
+  fullscreen:'⛶ Full screen',
+  rotate:'📱 Rotate your phone to landscape',
+  next:'Next level',
+  retry:'Try again',
+  win:'✨ LEVEL COMPLETE!',
+  epic:'🏆 LEGENDARY!',
+  lose:'OUT OF TOUCHES!',
+  carry:'{n} unused touches carry over.',
+  bonus:'🎁 10-level bonus +1!',
+  comboBonus:'🎁 75 COMBO! +1 TOUCH',
+  wait:'5 failed attempts. Try again in 5 minutes.',
+  left:'{n} balls remain.',
+  remainingWait:'Wait: {n} minutes',
+  waitActive:'Cooldown still active',
+  color:'🎨 Colorful level',
+  check:'Check again',
+  waiting:'⏳ Cooldown'
+ },
+ es:{
+  level:'NIVEL',
+  balls:'BOLAS',
+  moves:'TOQUES',
+  bank:'RESERVA',
+  restart:'↻ Reiniciar nivel',
+  fullscreen:'⛶ Pantalla completa',
+  rotate:'📱 Gira el teléfono horizontalmente',
+  next:'Siguiente nivel',
+  retry:'Reintentar',
+  win:'✨ ¡NIVEL SUPERADO!',
+  epic:'🏆 ¡LEGENDARIO!',
+  lose:'¡SIN TOQUES!',
+  carry:'Se guardan {n} toques para el próximo nivel.',
+  bonus:'🎁 Bono de 10 niveles +1!',
+  comboBonus:'🎁 ¡COMBO 75! +1 TOQUE',
+  wait:'5 intentos fallidos. Espera 5 minutos.',
+  left:'Quedan {n} bolas.',
+  remainingWait:'Espera: {n} minutos',
+  waitActive:'Aún debes esperar',
+  color:'🎨 Nivel colorido',
+  check:'Comprobar de nuevo',
+  waiting:'⏳ Espera'
+ }
+};
+
+function tr(key,n){
+ return (translations[lang]?.[key]||translations.tr[key]||key)
+  .replace('{n}',n??'');
+}
+
+function localize(){
+ document.documentElement.lang=lang;
+
+ ['level','balls','moves','bank'].forEach(k=>{
+  const id='label'+k[0].toUpperCase()+k.slice(1);
+  $(id).textContent=tr(k);
+ });
+
+ $('restart').textContent=tr('restart');
+ $('fullscreen').textContent=tr('fullscreen');
+ $('rotate').querySelector('.rotate-hint').textContent=tr('rotate');
+ $('language').value=lang;
+ $('sound').textContent=soundOn?'🔊':'🔇';
+
+ updateReward();
+
+ if(state==='play'&&!theme()){
+  $('theme').textContent=tr('color');
+ }
+}
+
+$('language').onchange=e=>{
+ lang=e.target.value;
+ localStorage.setItem('threeTouchLang',lang);
+ localize();
+};
+
+$('sound').onclick=()=>{
+ soundOn=!soundOn;
+ localStorage.setItem('threeTouchSound',soundOn?'on':'off');
+ $('v6Sound').checked=soundOn;
+ localize();
+};
+
+function tone(freq,duration=.09,type='sine',volume=.055){
+ if(!soundOn)return;
+ try{
+  audioCtx??=new(window.AudioContext||window.webkitAudioContext)();
+  if(audioCtx.state==='suspended')audioCtx.resume();
+
+  let o=audioCtx.createOscillator(),
+      g=audioCtx.createGain(),
+      now=audioCtx.currentTime;
+
+  o.type=type;
+  o.frequency.setValueAtTime(freq,now);
+  g.gain.setValueAtTime(volume,now);
+  g.gain.exponentialRampToValueAtTime(.001,now+duration);
+
+  o.connect(g);
+  g.connect(audioCtx.destination);
+  o.start(now);
+  o.stop(now+duration);
+ }catch(e){}
+}
+
+// Sesler oyuncu ekrana dokunduktan sonra başlar.
+function bell(freq=1100,volume=.075){
+ if(!soundOn||localStorage.getItem('oneToucheFx')==='off')return;
+
+ try{
+  audioCtx??=new(window.AudioContext||window.webkitAudioContext)();
+  if(audioCtx.state==='suspended')audioCtx.resume();
+
+  const now=audioCtx.currentTime;
+
+  [1,2.01,3.93].forEach((ratio,i)=>{
+   const osc=audioCtx.createOscillator();
+   const gain=audioCtx.createGain();
+
+   osc.type='sine';
+   osc.frequency.setValueAtTime(freq*ratio,now);
+
+   gain.gain.setValueAtTime(.0001,now);
+   gain.gain.exponentialRampToValueAtTime(volume/(1+i*3),now+.008);
+   gain.gain.exponentialRampToValueAtTime(.0001,now+(.48-i*.08));
+
+   osc.connect(gain);
+   gain.connect(audioCtx.destination);
+
+   osc.start(now);
+   osc.stop(now+.52);
+  });
+ }catch(e){}
+}
+
+let lastSpecialSound=0;
+
+function specialBurst(kind){
+ const now=performance.now();
+
+ if(now-lastSpecialSound<110)return;
+ lastSpecialSound=now;
+
+ const f={
+  gold:1320,
+  lion:260,
+  magnet:640,
+  bomb:160,
+  rainbow:920,
+  split:740
+ }[kind]||700;
+
+ bell(f,.11);
+ tone(f*.65,.20,kind==='bomb'?'sawtooth':'triangle',.075);
+
+ setTimeout(()=>{
+  tone(f*1.4,.16,'sine',.06);
+ },90);
+}
+
+function playStartChime(){
+ bell(784,.09);
+ setTimeout(()=>bell(1175,.075),170);
+ setTimeout(()=>bell(1568,.065),340);
+}
+
+function save(){
+ try{
+  localStorage.setItem(
+   'threeTouchSaveV3',
+   JSON.stringify({level,bank,failed,lockUntil})
+  );
+ }catch(e){}
+}
+
+function theme(){
+ if(localStorage.getItem('oneToucheThemeOff')==='yes')return null;
+
+ let d=new Date(),
+     m=d.getMonth()+1,
+     day=d.getDate();
+
+ if(m===10&&day>=25){
+  return {
+   name:'🎃 Cadılar Bayramı',
+   icons:['🎃','🦇'],
+   color:'#37234b'
+  };
+ }
+
+ if(m===12&&day>=20&&day<=26){
+  return {
+   name:'🎄 Noel haftası',
+   icons:['❄️','🎄'],
+   color:'#244b60'
+  };
+ }
+
+ const ramadanStarts={
+  2026:'2026-02-19',
+  2027:'2027-02-08',
+  2028:'2028-01-28',
+  2029:'2029-01-16',
+  2030:'2030-01-06'
+ };
+
+ let s=ramadanStarts[d.getFullYear()];
+
+ if(s){
+  let [y,mo,da]=s.split('-').map(Number);
+
+  let diff=(
+   new Date(d.getFullYear(),m-1,day)-
+   new Date(y,mo-1,da)
+  )/86400000;
+
+  if(diff>=0&&diff<7){
+   return {
+    name:'🌙 Ramazan haftası',
+    icons:['🌙','🏮'],
+    color:'#273654'
+   };
+  }
+ }
+
+ return null;
+}
+
+function size(){
+ return {
+  w:board.clientWidth,
+  h:board.clientHeight
+ };
+}
+
+const ENERGY_KEY='oneToucheEnergyV1';
+const ENERGY_INTERVAL=300000;
+
+let energyData;
+
+try{
+ energyData=JSON.parse(localStorage.getItem(ENERGY_KEY)||'null');
+}catch(e){}
+
+if(!energyData||typeof energyData.count!=='number'){
+ energyData={count:5,next:0};
+}
+
+function refreshEnergy(){
+ const now=Date.now();
+
+ if(energyData.count<5&&energyData.next&&now>=energyData.next){
+  let restored=1+Math.floor(
+   (now-energyData.next)/ENERGY_INTERVAL
+  );
+
+  energyData.count=Math.min(
+   5,energyData.count+restored
+  );
+
+  energyData.next=energyData.count===5
+   ?0
+   :energyData.next+restored*ENERGY_INTERVAL;
+ }
+
+ localStorage.setItem(
+  ENERGY_KEY,
+  JSON.stringify(energyData)
+ );
+
+ const sec=energyData.count<5
+  ?Math.max(0,Math.ceil((energyData.next-now)/1000))
+  :0;
+
+ $('energyStatus').textContent=
+  '⚡ '+energyData.count+'/5'+
+  (sec
+   ?' · '+Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0')
+   :'');
+}
+
+function spendEnergy(){
+ refreshEnergy();
+
+ if(energyData.count<=0){
+  message({
+   tr:'Enerji bitmiş, yenilenmesini bekle',
+   en:'No energy, wait to recharge',
+   es:'Sin energía, espera la recarga'
+  }[lang]);
+  return false;
+ }
+
+ if(energyData.count===5){
+  energyData.next=Date.now()+ENERGY_INTERVAL;
+ }
+
+ energyData.count--;
+ refreshEnergy();
+ return true;
+}
+
+setInterval(refreshEnergy,1000);
+
+document.addEventListener('visibilitychange',()=>{
+ if(!document.hidden)refreshEnergy();
+});
+
+window.addEventListener('pageshow',refreshEnergy);
+
+function update(){
+ $('level').textContent=level;
+ $('remaining').textContent=balls.length;
+ $('moves').textContent=level<=3?'∞':moves;
+ $('bank').textContent=bank;
+}
+
+function message(txt){
+ let e=document.createElement('div');
+
+ let n=Number(
+  (txt.match(/(?:COMBO\s*x?|75\s*COMBO)\s*(\d+)/i)||[])[1]
+ )||combo;
+
+ let tier=n>=75?5:n>=50?4:n>=25?3:n>=10?2:1;
+
+ e.className='flash tier'+tier;
+ e.textContent=txt;
+ board.appendChild(e);
+
+ if(tier>=3){
+  let count=tier===5?26:12;
+
+  for(let i=0;i<count;i++){
+   let p=document.createElement('i');
+   p.className='combo-confetti';
+
+   p.style.left=(48+Math.random()*4)+'%';
+   p.style.top='28%';
+
+   p.style.setProperty(
+    '--c',
+    ['#ffe45e','#ff74c7','#5de7ff','#b8ff75'][i%4]
+   );
+
+   p.style.setProperty(
+    '--x',(Math.random()*260-130)+'px'
+   );
+
+   p.style.setProperty(
+    '--y',(Math.random()*180-90)+'px'
+   );
+
+   board.appendChild(p);
+   setTimeout(()=>p.remove(),900);
+  }
+ }
+
+ setTimeout(()=>e.remove(),1200);
+}
+
+function showMilestone(lvl){
+ const config={
+  4:[
+   '🎉',
+   'ISINMA BİTTİ!',
+   'Hadi biraz zorlaştıralım! • 3 dokunuş'
+  ],
+  9:[
+   '😎',
+   'İŞLER KIZIŞIYOR!',
+   'Şimdi sadece 2 dokunuş hakkın var!'
+  ],
+  14:[
+   '🔥',
+   'ASIL OYUN ŞİMDİ BAŞLIYOR!',
+   'ONE TOUCHE • Tek dokunuşla başar!'
+  ]
+ }[lvl];
+
+ if(!config)return;
+
+ const box=$('milestoneShow');
+
+ box.innerHTML=
+  '<div class="milestone-card">'+
+  '<div class="milestone-icon">'+config[0]+'</div>'+
+  '<div class="milestone-title">'+config[1]+'</div>'+
+  '<div class="milestone-sub">'+config[2]+'</div>'+
+  '</div>';
+
+ ['🔴','🟡','🟢','🔵','🟣','😱','✨','⭐','💥','🎊']
+ .forEach((ball,i)=>{
+  let el=document.createElement('div');
+  el.className='milestone-ball';
+  el.textContent=ball;
+
+  el.style.setProperty('--left',(i*17%95)+'%');
+  el.style.setProperty('--top',(i*29%90)+'%');
+  el.style.setProperty(
+   '--dx',((i%2?1:-1)*(80+i*17))+'px'
+  );
+  el.style.setProperty(
+   '--dy',((i%3-1)*130)+'px'
+  );
+
+  box.appendChild(el);
+ });
+
+ box.classList.add('active');
+ tone(660,.16);
+ setTimeout(()=>tone(880,.19),180);
+
+ setTimeout(()=>{
+  box.classList.remove('active');
+  box.innerHTML='';
+ },2800);
+}
+
+let sparkBudget=0;
+
+function sparks(x,y,color){
+ if(balls.length>130||sparkBudget>=6)return;
+
+ sparkBudget+=3;
+
+ for(let i=0;i<3;i++){
+  let e=document.createElement('div');
+  let a=Math.random()*Math.PI*2;
+  let r=20+Math.random()*50;
+
+  e.className='spark';
+  e.style.left=x+'px';
+  e.style.top=y+'px';
+
+  e.style.setProperty('--spark',color);
+  e.style.setProperty('--dx',Math.cos(a)*r+'px');
+  e.style.setProperty('--dy',Math.sin(a)*r+'px');
+
+  board.appendChild(e);
+  setTimeout(()=>e.remove(),750);
+ }
+}
+
+function start(){
+ board.innerHTML='';
+ balls=[];
+ auras=[];
+ combo=0;
+ used=0;
+ delay=0;
+ state='play';
+ effectClock=0;
+ window.pendingSpecials=[];
+ touchId=0;
+ chains={};
+ awarded=new Set();
+
+ moves=level<=3?999:level<=8?3:level<=13?2:1;
+ moves=Math.min(6,moves+(level<=3?0:bank));
+ bank=0;
+
+ $('modal').style.display='none';
+
+ let th=theme();
+ board.style.background=th?th.color:palette[(level-1)%palette.length];
+
+ board.classList.toggle('halloween',!!th&&th.name.includes('Cadılar'));
+ board.classList.toggle('christmas',!!th&&th.name.includes('Noel'));
+
+ $('theme').textContent=th?th.name:tr('color');
+
+ if(th){
+  th.icons.forEach((ic,i)=>{
+   let e=document.createElement('div');
+   e.className='decor '+(i?'two':'one');
+   e.textContent=ic;
+   board.appendChild(e);
+  });
+ }
+
+ let sz=size();
+ let n=50+(level-1)*5;
+ let r=Math.max(3.6,Math.min(7.8,sz.h/45)-(level-1)*.096);
+
+ let colors=[
+  '#f4d45f',
+  '#a7e1fa',
+  '#b9a3ff',
+  '#fff3d2',
+  '#f8a768'
+ ];
+
+ for(let i=0;i<n;i++){
+  let el=document.createElement('div');
+  let red=level>=5&&i%4===0;
+  let c=red?'#ef626a':colors[i%colors.length];
+
+  let x=r+Math.random()*Math.max(1,sz.w-2*r);
+  let y=r+Math.random()*Math.max(1,sz.h-2*r);
+
+  let angle=Math.random()*Math.PI*2;
+  let speed=((level<=20||n<30)?55:35)+
+   Math.random()*(65+Math.min(level,40)*2.5);
+
+  for(let j=0;j<120&&balls.some(
+   b=>Math.hypot(b.x-x,b.y-y)<b.r+r+5
+  );j++){
+   x=r+Math.random()*Math.max(1,sz.w-2*r);
+   y=r+Math.random()*Math.max(1,sz.h-2*r);
+  }
+
+  let special=null;
+
+  if(i===n-1&&(
+   level<=10||
+   Math.random()<(level<=20?.30:level<=50?.20:.15)
+  )){
+   if(level<=5){
+    if(level>=2&&Math.random()<.35)special='gold';
+   }else{
+    let pool=['gold','lion'];
+
+    if(level>=11)pool.push('bomb');
+    if(level>=16)pool.push('split');
+    if(level>=21)pool.push('magnet');
+
+    if(level>=12&&Math.random()<.22){
+     special='rainbow';
+    }else{
+     special=pool[Math.floor(Math.random()*pool.length)];
+    }
+   }
+  }
+
+  if(special)c=specials[special].colors;
+
+  el.className='ball'+
+   (red?' red':'')+
+   (special?' special '+special:'');
+
+  el.style.setProperty('--color',c);
+
+  if(special){
+   el.dataset.icon=specials[special].icon;
+   el.setAttribute('aria-label',specials[special][lang][0]);
+  }
+
+  el.style.width=2*r+'px';
+  el.style.height=2*r+'px';
+  el.style.left='0';
+  el.style.top='0';
+
+  board.appendChild(el);
+
+  balls.push({
+   el,x,y,
+   vx:Math.cos(angle)*speed,
+   vy:Math.sin(angle)*speed,
+   r,c,special
+  });
+ }
+
+ update();
+ draw();
+ localize();
+ refreshEnergy();
+ save();
+}
+
+function draw(){
+ balls.forEach(b=>{
+  b.el.style.transform='translate3d('+
+   (b.x-b.r)+'px,'+
+   (b.y-b.r)+'px,0)';
+ });
+}
+
+function end(win){
+ state='end';
+
+ if(win){
+  bank=level<=3?0:Math.min(
+   1,moves+(level%10===0?1:0)
+  );
+  failed=0;
+
+  $('result').textContent=used===1?tr('epic'):tr('win');
+  tone(720,.25);
+
+  $('detail').textContent=
+   (combo>=3?'🔥 COMBO x'+combo+'! ':'')+
+   tr('carry',bank)+
+   (level%10===0?' '+tr('bonus'):'');
+ }else{
+  if(level>3)spendEnergy();
+
+  failed++;
+  bank=0;
+
+  if(failed>=5){
+   failed=0;
+  }
+
+  $('result').textContent=tr('lose');
+  tone(170,.3,'triangle');
+  $('detail').textContent=tr('left',balls.length);
+ }
+
+ save();
+
+ $('continue').textContent=win?tr('next'):tr('retry');
+ $('modal').style.display='flex';
+
+ $('continue').onclick=()=>{
+  if(win){
+   level++;
+   start();
+
+   if([4,9,14].includes(level)){
+    showMilestone(level);
+   }
+  }else{
+   start();
+  }
+ };
+}
+
+function addAura(x,y,owner){
+ if(auras.length>=180)return;
+
+ let el=document.createElement('div');
+ el.className='aura';
+ board.appendChild(el);
+
+ auras.push({
+  x,y,
+  maxR:Math.min(size().w,size().h)*.14*
+   (level<=5?1.3:level<=10?1.2:level<=20?1.1:1),
+  r:0,
+  age:0,
+  el,
+  owner
+ });
+}
+
+board.addEventListener('pointerdown',e=>{
+ if(
+  !e.isTrusted||
+  !e.isPrimary||
+  e.button!==0||
+  !Number.isFinite(e.clientX)||
+  !Number.isFinite(e.clientY)||
+  state!=='play'||
+  moves<=0||
+  document.getElementById('intro').hidden!==true||
+  !document.getElementById('guideOverlay').hidden
+ )return;
+
+ let rect=board.getBoundingClientRect();
+
+ touchId++;
+ chains[touchId]=0;
+
+ bell(1180,.065);
+
+ addAura(
+  e.clientX-rect.left-board.clientLeft,
+  e.clientY-rect.top-board.clientTop,
+  touchId
+ );
+
+ if(level>3)moves--;
+
+ used++;
+ tone(350,.16);
+ update();
+});
+
+$('restart').onclick=()=>{
+ start();
+};
+
+$('fullscreen').onclick=()=>{
+ if(document.fullscreenElement){
+  document.exitFullscreen?.();
+ }else{
+  document.documentElement.requestFullscreen?.().catch(()=>{});
+ }
+};
+
+function frame(t){
+ sparkBudget=0;
+
+ let dt=Math.min((t-last)/1000||0,.032);
+ last=t;
+
+ if(state==='play'){
+  let sz=size();
+  effectClock+=dt;
+
+  let lions=balls.filter(b=>b.special==='lion');
+  let magnets=balls.filter(b=>b.special==='magnet');
+  let normalCount=balls.length-lions.length-magnets.length;
+
+  lions.forEach(l=>l.el.classList.add('active'));
+  magnets.forEach(m=>m.el.classList.add('active'));
+
+  balls.forEach(b=>{
+   if(!b.special&&(level<=20||balls.length<30)){
+    let v=Math.hypot(b.vx,b.vy);
+    let floor=normalCount<=3?72:55;
+
+    if(v>0&&v<floor){
+     b.vx=b.vx/v*floor;
+     b.vy=b.vy/v*floor;
+    }
+   }
+
+   if(
+    b.special!=='lion'&&
+    lions.length&&
+    lions.some(l=>Math.hypot(l.x-b.x,l.y-b.y)<170)
+   ){
+    let l=lions.reduce((a,c)=>
+     Math.hypot(c.x-b.x,c.y-b.y)<
+     Math.hypot(a.x-b.x,a.y-b.y)?c:a
+    );
+
+    let dx=b.x-l.x;
+    let dy=b.y-l.y;
+    let d=Math.hypot(dx,dy);
+
+    if(d>1){
+     let speed=Math.max(20,Math.hypot(b.vx,b.vy));
+     let turn=Math.min(.13,dt*5);
+
+     let nx=b.vx/speed*(1-turn)+dx/d*turn;
+     let ny=b.vy/speed*(1-turn)+dy/d*turn;
+     let n=Math.hypot(nx,ny);
+
+     if(n){
+      b.vx=nx/n*speed;
+      b.vy=ny/n*speed;
+     }
+    }
+   }else if(b.special!=='magnet'&&magnets.length){
+    for(let m of magnets){
+     let dx=m.x-b.x;
+     let dy=m.y-b.y;
+     let d=Math.hypot(dx,dy);
+
+     if(d>1&&d<310){
+      let speed=Math.max(35,Math.hypot(b.vx,b.vy));
+      let turn=Math.min(.65,dt*(13+12*(1-d/310)));
+
+      let nx=b.vx/speed*(1-turn)+dx/d*turn;
+      let ny=b.vy/speed*(1-turn)+dy/d*turn;
+      let n=Math.hypot(nx,ny);
+
+      if(n){
+       b.vx=nx/n*speed;
+       b.vy=ny/n*speed;
+      }
+     }
+    }
+   }
+
+   b.x+=b.vx*dt;
+   b.y+=b.vy*dt;
+
+   if(b.x<b.r){
+    b.x=b.r;
+    b.vx=Math.abs(b.vx);
+   }
+
+   if(b.x>sz.w-b.r){
+    b.x=sz.w-b.r;
+    b.vx=-Math.abs(b.vx);
+   }
+
+   if(b.y<b.r){
+    b.y=b.r;
+    b.vy=Math.abs(b.vy);
+   }
+
+   if(b.y>sz.h-b.r){
+    b.y=sz.h-b.r;
+    b.vy=-Math.abs(b.vy);
+   }
+  });
+
+  // Yakındaki topları gruplandırarak çarpışma yükünü azalt.
+  const cellSize=Math.max(12,(balls[0]?.r||6)*2+2);
+  const grid=new Map();
+
+  for(let i=0;i<balls.length;i++){
+   const b=balls[i];
+   const cx=Math.floor(b.x/cellSize);
+   const cy=Math.floor(b.y/cellSize);
+   const key=cx+','+cy;
+
+   if(!grid.has(key)){
+    grid.set(key,[]);
+   }
+
+   grid.get(key).push(i);
+  }
+
+  for(let i=0;i<balls.length;i++){
+   const a=balls[i];
+   const cx=Math.floor(a.x/cellSize);
+   const cy=Math.floor(a.y/cellSize);
+
+   for(let gx=cx-1;gx<=cx+1;gx++){
+    for(let gy=cy-1;gy<=cy+1;gy++){
+     const candidates=grid.get(gx+','+gy);
+
+     if(!candidates)continue;
+
+     for(const j of candidates){
+      if(j<=i)continue;
+
+      const b=balls[j];
+      const dx=b.x-a.x;
+      const dy=b.y-a.y;
+      const min=a.r+b.r;
+
+      if(Math.abs(dx)>=min||Math.abs(dy)>=min){
+       continue;
+      }
+
+      const d2=dx*dx+dy*dy;
+
+      if(d2>=min*min)continue;
+
+      const d=Math.sqrt(d2);
+      const nx=d>0.0001?dx/d:1;
+      const ny=d>0.0001?dy/d:0;
+
+      const overlap=min-d;
+      const shift=overlap*.5+0.015;
+
+      a.x-=nx*shift;
+      a.y-=ny*shift;
+      b.x+=nx*shift;
+      b.y+=ny*shift;
+
+      const rel=
+       (b.vx-a.vx)*nx+
+       (b.vy-a.vy)*ny;
+
+      if(rel<0){
+       const impulse=-rel*.98;
+
+       a.vx-=impulse*nx;
+       a.vy-=impulse*ny;
+       b.vx+=impulse*nx;
+       b.vy+=impulse*ny;
+      }
+     }
+    }
+   }
+  }
+
+  // Çarpışmadan sonra topları oyun alanında tut.
+  for(const b of balls){
+   b.x=Math.max(
+    b.r,
+    Math.min(sz.w-b.r,b.x)
+   );
+
+   b.y=Math.max(
+    b.r,
+    Math.min(sz.h-b.r,b.y)
+   );
+  }
+
+  auras=auras.filter(a=>{
+   a.age+=dt;
+
+   if(a.age>=4){
+    a.el.remove();
+    return false;
+   }
+
+   a.r=a.age<2
+    ?a.maxR*(0.18+0.82*Math.sin(Math.PI*a.age/2)**0.7)
+    :0;
+
+   a.el.style.display=a.age<2?'block':'none';
+   a.el.style.width=2*a.maxR+'px';
+   a.el.style.height=2*a.maxR+'px';
+   a.el.style.left='0';
+   a.el.style.top='0';
+
+   a.el.style.transform=
+    'translate3d('+
+    (a.x-a.maxR)+'px,'+
+    (a.y-a.maxR)+'px,0) scale('+
+    (a.maxR?a.r/a.maxR:0)+')';
+
+   return true;
+  });
+
+  let survivors=[];
+  let newAuras=[];
+  let rainbowHits=[];
+  let frameBellPlayed=false;
+
+  balls.forEach(b=>{
+   let hit=auras.find(a=>
+    a.age<2&&
+    a.r>0.5&&
+    Math.hypot(b.x-a.x,b.y-a.y)<=a.r+b.r
+   );
+
+   if(hit){
+    b.el.remove();
+    sparks(b.x,b.y,b.c);
+
+    newAuras.push({
+     x:b.x,
+     y:b.y,
+     owner:hit.owner,
+     mult:b.special==='bomb'?1.8:1
+    });
+
+    if(b.special){
+     discovered.add(b.special);
+
+     localStorage.setItem(
+      'threeTouchDiscovered',
+      JSON.stringify([...discovered])
+     );
+
+     if(b.special==='gold'){
+      moves=Math.min(6,moves+1);
+     }
+
+     if(b.special==='rainbow'){
+      rainbowHits.push({owner:hit.owner});
+     }
+
+     if(b.special==='split'){
+      newAuras.push({
+       x:Math.min(size().w-10,b.x+45),
+       y:b.y,
+       owner:hit.owner,
+       mult:1
+      });
+     }
+
+     if(!seen.has(b.special)){
+      seen.add(b.special);
+
+      localStorage.setItem(
+       'threeTouchSeen',
+       JSON.stringify([...seen])
+      );
+
+      (window.pendingSpecials??=[]).push(b.special);
+     }
+    }
+
+    if(b.special){
+     specialBurst(b.special);
+    }else if(!frameBellPlayed){
+     bell(1050+Math.min(combo,20)*18,.035);
+     frameBellPlayed=true;
+    }
+
+   }else{
+    survivors.push(b);
+   }
+  });
+
+  balls=survivors;
+
+  rainbowHits.forEach(h=>{
+   let choices=balls.filter(b=>!b.special);
+   if(!choices.length)return;
+
+   let target=choices[
+    Math.floor(Math.random()*choices.length)
+   ].c;
+
+   let remaining=[];
+
+   balls.forEach(b=>{
+    if(!b.special&&b.c===target){
+     b.el.remove();
+     sparks(b.x,b.y,b.c);
+
+     newAuras.push({
+      x:b.x,
+      y:b.y,
+      owner:h.owner,
+      mult:1
+     });
+    }else{
+     remaining.push(b);
+    }
+   });
+
+   balls=remaining;
+
+   message('🌈 '+({
+    tr:'RENK PATLAMASI!',
+    en:'COLOR BLAST!',
+    es:'¡EXPLOSIÓN DE COLOR!'
+   }[lang]));
+  });
+
+  if(newAuras.length){
+   combo+=newAuras.length;
+
+   if([5,10,25,50,75].some(
+    v=>combo>=v&&combo-newAuras.length<v
+   )){
+    let labels={
+     5:'COOL!',
+     10:'SUPER!',
+     25:'WOW!',
+     50:'AMAZING!',
+     75:'LEGENDARY!'
+    };
+
+    let threshold=[75,50,25,10,5].find(
+     v=>combo>=v&&combo-newAuras.length<v
+    );
+
+    message(labels[threshold]+' COMBO x'+combo);
+   }
+  }
+
+  newAuras.forEach(p=>{
+   chains[p.owner]=(chains[p.owner]||0)+1;
+
+   if(chains[p.owner]>=75&&!awarded.has(p.owner)){
+    awarded.add(p.owner);
+    moves=Math.min(6,moves+1);
+    message(tr('comboBonus'));
+    tone(980,.3);
+   }
+
+   addAura(p.x,p.y,p.owner);
+
+   if(p.mult&&p.mult>1){
+    auras[auras.length-1].maxR*=p.mult;
+   }
+  });
+
+  update();
+  draw();
+
+  if(window.pendingSpecials?.length){
+   let kind=window.pendingSpecials.shift();
+   showSpecial(kind);
+  }
+
+  if(state==='play'&&!balls.length){
+   delay+=dt;
+
+   if(delay>.4){
+    end(true);
+   }
+  }else if(
+   state==='play'&&
+   moves===0&&
+   !auras.length
+  ){
+   delay+=dt;
+
+   if(delay>.4){
+    end(false);
+   }
+  }else{
+   delay=0;
+  }
+ }
+
+ requestAnimationFrame(frame);
+}
+
+function launchFromIntro(){
+ document.body.classList.add('game-started');
+ document.getElementById('intro').hidden=true;
+ start();
+ playStartChime();
+}
+
+document.getElementById('intro-start')
+ .addEventListener('click',launchFromIntro);
+
+state='intro';
+requestAnimationFrame(frame);
+
+})();
+</script>
+<script id="onboarding-script">
+
+(()=>{
+ const splash=document.getElementById('studioSplash');
+ const guide=document.getElementById('guideOverlay');
+ const intro=document.getElementById('intro');
+ const next=document.getElementById('guideNext');
+ const skip=document.getElementById('guideSkip');
+ const demo=document.getElementById('guideDemo');
+
+ let step=0;
+ let practiced=false;
+
+ const scenes=[
+  [
+   '🎱 TOPLARI TANI',
+   'İlk turda 50 top var; her tur 5 top daha eklenir. Hedefin hepsini yok etmek!'
+  ],
+  [
+   '👆 TEK DOKUNUŞ',
+   'Masaya dokun. Aura 2 saniye açık, 2 saniye kapalı kalır. İlk turlarda daha büyüktür.'
+  ],
+  [
+   '✨ ZİNCİRLEME PATLAMA',
+   'Patlayan toplar yeni auralar oluşturur. Tek dokunuşla 75 top patlatırsan +1 dokunuş kazanırsın!'
+  ],
+  [
+   '🎁 ÖZEL TOPLAR',
+   'Envanterindeki özel topları kullanarak zor turları geçebilirsin.'
+  ],
+  [
+   '🎮 ŞİMDİ SEN DENE!',
+   'Üç topu patlatmak için oyun alanına dokun! İlk 3 turda sınırsız, 4–8 arası 3, 9–13 arası 2, 14. turdan sonra 1 dokunuş hakkın var.'
+  ]
+ ];
+
+ function draw(){
+  let [title,desc]=scenes[step];
+
+  document.getElementById('guideProgress').textContent=
+   (step+1)+' / '+scenes.length;
+
+  document.getElementById('guideTitle').textContent=title;
+  document.getElementById('guideText').textContent=desc;
+
+  demo.classList.toggle('practice',step===4);
+  demo.classList.remove('done');
+
+  practiced=false;
+
+  next.textContent=step===4?'Oyuna geç':'Devam';
+  next.disabled=step===4;
+  next.style.opacity=step===4?'.5':'1';
+ }
+
+ function close(){
+  guide.hidden=true;
+  intro.hidden=false;
+
+  localStorage.setItem(
+   'oneToucheTutorialSeenV2',
+   'yes'
+  );
+ }
+
+ function open(){
+  step=0;
+  guide.hidden=false;
+  intro.hidden=true;
+  draw();
+ }
+
+ next.onclick=()=>{
+  if(step<4){
+   step++;
+   draw();
+  }else{
+   close();
+  }
+ };
+
+ skip.onclick=close;
+
+ demo.onclick=()=>{
+  if(step!==4||practiced)return;
+
+  practiced=true;
+  demo.classList.add('done');
+
+  next.disabled=false;
+  next.style.opacity='1';
+
+  document.getElementById('guideText').textContent=
+   'Harika! İlk zincirleme patlamanı yaptın. Artık hazırsın!';
+ };
+
+ document.getElementById('helpGuide').onclick=open;
+
+ intro.hidden=true;
+
+ setTimeout(()=>{
+  splash.hidden=true;
+
+  if(
+   localStorage.getItem('oneToucheTutorialSeenV2')!=='yes'
+  ){
+   open();
+  }else{
+   intro.hidden=false;
+  }
+ },4000);
+})();
+</script>
+</body>
+</html>
